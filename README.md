@@ -58,10 +58,11 @@ print(df.head())
 ## Estrutura do projeto
 
 📦 seu-repositorio/
-├── app.py                      # Código principal da classe
-├── app.ipynb                   # Exemplo prático em notebook
+├── app.py               # Código principal da classe
+├── app.ipynb        # Exemplo prático em notebook
 ├── requirements.txt            # Dependências do projeto
 └── README.md                   # Documentação principal
+
 
 ## Contribuições
 
