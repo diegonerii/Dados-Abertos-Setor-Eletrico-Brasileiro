@@ -3,10 +3,17 @@ import json
 import pandas as pd
 
 class dadosAbertosSetorEletrico:
-    def __init__(self):
+    def __init__(self, instituicao: str):
         
-        self.host = 'https://dadosabertos.ccee.org.br'
         self.api = '/api/3/action/'
+        if str.lower(instituicao) == "ccee":
+            self.host = 'https://dadosabertos.ccee.org.br'
+        elif str.lower(instituicao) == "ons":
+            self.host = 'https://dados.ons.org.br'
+        elif str.lower(instituicao) == "aneel":
+            self.host = 'https://dadosabertos.aneel.gov.br/'
+        else:
+            print("Instituição não encontrada!")
 
     def listar_produtos_disponiveis(self):
         r = requests.get(self.host+self.api+f"package_list")
@@ -31,7 +38,13 @@ class dadosAbertosSetorEletrico:
                 )
                 response = r.json()
 
-                registros = response['result']['records']
+                if not response.get("success", False) or "result" not in response or "records" not in response["result"]:
+                    print(f"Recurso {key} não está disponível via API estruturada.")
+                    print("Faça o download manual pelo portal de dados abertos.")
+                    print(f"URL do recurso: {self.host}/dataset/{produto}")
+                    break  # quebra o while, vai para o próximo resource_id
+
+                registros = response["result"]["records"]
                 if not registros:
                     break
 
@@ -39,10 +52,10 @@ class dadosAbertosSetorEletrico:
                 lista_dfs.append(df)
 
                 offset += limite
-                if offset >= response['result'].get('total', 0):
+                if offset >= response["result"].get("total", 0):
                     break
         
-        return pd.concat(lista_dfs, ignore_index=True)
+        return pd.concat(lista_dfs, ignore_index=True) if lista_dfs else None
 
 
 carga = dadosAbertosSetorEletrico()

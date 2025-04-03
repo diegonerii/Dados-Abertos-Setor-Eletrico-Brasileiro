@@ -44,7 +44,7 @@ pip install -r requirements.txt
 from dados_ccee import dadosAbertosSetorEletrico
 
 # Inicializa o cliente
-cliente = dadosAbertosSetorEletrico()
+cliente = dadosAbertosSetorEletrico("ccee")
 
 # Lista os produtos disponíveis na API da CCEE
 produtos = cliente.listar_produtos_disponiveis()
@@ -55,13 +55,13 @@ df = cliente.baixar_dados_produto_completo("parcela_carga_consumo")
 print(df.head())
 ```
 
-## Estrutura do projeto
+## Observações Importantes
 
-📦 seu-repositorio/
-├── app.py               # Código principal da classe
-├── app.ipynb        # Exemplo prático em notebook
-├── requirements.txt            # Dependências do projeto
-└── README.md                   # Documentação principal
+- Nem todos os datasets possuem dados acessíveis via API (`datastore_search`). Quando não disponíveis, o script mostra a URL para download manual.
+
+- Alguns datasets podem conter muitos registros — a paginação automática com `limit` e `offset` evita estouro de memória.
+
+- A classe trata de forma unificada três instituições distintas, facilitando reuso do código.
 
 
 ## Contribuições
@@ -72,6 +72,10 @@ Se você quiser sugerir melhorias, corrigir bugs ou adicionar novas funcionalida
 ## Fontes oficiais
 
 - **Portal de Dados Abertos da CCEE** → [Acessar Portal](https://dadosabertos.ccee.org.br/)
+
+- **Portal de Dados Abertos da ONS** → [Acessar Portal](https://dados.ons.org.br/)
+
+- **Portal de Dados Abertos da ANEEL** → [Acessar Portal](https://dadosabertos.aneel.gov.br/)
 
 - **CKAN API Reference (oficial)** → [Acessar Documentação (Inglês)](https://docs.ckan.org/en/2.11/)
 
