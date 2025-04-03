@@ -1,4 +1,9 @@
 # ⚡ Dados Abertos do Setor Elétrico 
+![Avatar Twitter 1](https://github.com/user-attachments/assets/f7e05698-789b-41cc-8965-bb9a2f28b14b)
+
+![ons-logo@2x ac52821bc48c70c7d00b5fd88ad4a3c8f4013a25](https://github.com/user-attachments/assets/0a1f3849-d6f9-4ea6-801b-d03fca56f5f8)
+
+![images](https://github.com/user-attachments/assets/93c6ca2f-0df1-4fc3-86b8-057bfc385cd8)
 
 Este projeto oferece uma interface simples em Python para acessar e baixar dados públicos do Setor Elétrico nos 3 principais órgãos: **CCEE (Câmara de Comercialização de Energia Elétrica)**, **ONS (Operador Nacional do Sistema)** e **ANEEL (Agência Nacional de Energia Elétrica)**.
 
