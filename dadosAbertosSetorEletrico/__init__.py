@@ -56,6 +56,3 @@ class dadosAbertosSetorEletrico:
         
         return pd.concat(lista_dfs, ignore_index=True) if lista_dfs else None
 
-
-carga = dadosAbertosSetorEletrico()
-carga.baixar_dados_produto_completo("parcela_carga_consumo")

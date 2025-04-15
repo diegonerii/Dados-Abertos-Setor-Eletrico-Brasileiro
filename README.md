@@ -46,7 +46,7 @@ pip install -r requirements.txt
 ## Exemplo de uso
 
 ```python
-from dados_ccee import dadosAbertosSetorEletrico
+from dadosAbertosSetorEletrico import dadosAbertosSetorEletrico
 
 # Inicializa o cliente
 cliente = dadosAbertosSetorEletrico("ccee")
