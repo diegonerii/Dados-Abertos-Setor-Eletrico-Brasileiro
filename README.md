@@ -60,6 +60,50 @@ df = cliente.baixar_dados_produto_completo("parcela_carga_consumo")
 print(df.head())
 ```
 
+## ✅ Testes Automatizados
+
+Este projeto já vem com uma suíte completa de testes automatizados que garante o funcionamento correto de cada parte do código. Mesmo que você nunca tenha usado testes em Python, aqui está como fazer funcionar.
+
+### 🧪 O que está sendo testado?
+
+- Inicialização correta da classe `dadosAbertosSetorEletrico`
+- Comunicação com a API para listar produtos
+- Extração de IDs de recursos (datasets)
+- Download de dados completos de forma assíncrona
+- Casos de erro simulados e retorno vazio
+
+Os testes estão localizados na pasta:
+
+tests/test_dadosAbertosSetorEletrico.py
+
+Todos os testes estão **comentados passo a passo** para facilitar a leitura até mesmo para iniciantes.
+
+### ⚙️ Como rodar os testes
+
+1. Instale os pacotes de teste (se ainda não tiver feito):
+
+```bash
+pip install pytest pytest-asyncio
+```
+
+2. Execute os testes na raiz do projeto:
+
+```bash
+pytest -v 
+```
+- O -v significa “modo verboso” e exibe o nome de cada teste sendo executado.
+
+Se tudo estiver funcionando corretamente, você verá algo assim:
+
+```bash
+tests/test_dadosAbertosSetorEletrico.py::test_init_ccee PASSED
+tests/test_dadosAbertosSetorEletrico.py::test_listar_produtos_disponiveis PASSED
+tests/test_dadosAbertosSetorEletrico.py::test_baixar_dados_mockado PASSED
+...
+```
+
+- ✅ Dica: Se você estiver usando Jupyter Notebook ou Google Colab, prefira usar o método await cliente.baixar_dados_produto_completo_async(...) para rodar de forma assíncrona.
+
 ## Observações Importantes
 
 - Nem todos os datasets possuem dados acessíveis via API (`datastore_search`). Quando não disponíveis, o script mostra a URL para download manual.
