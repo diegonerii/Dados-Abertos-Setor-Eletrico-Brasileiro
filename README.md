@@ -118,6 +118,51 @@ tests/test_dadosAbertosSetorEletrico.py::test_baixar_dados_mockado PASSED
 Contribuições são muito bem-vindas!
 Se você quiser sugerir melhorias, corrigir bugs ou adicionar novas funcionalidades, sinta-se à vontade para abrir uma issue ou pull request.
 
+## 🚀 CI/CD e publicação no PyPI
+
+O projeto usa GitHub Actions para automatizar validações e publicação de novas versões.
+
+### Validação contínua
+
+A esteira `CI` é executada em pushes para `main`/`master` e em pull requests. Ela:
+
+- executa a suíte de testes em Python 3.8, 3.9, 3.10, 3.11 e 3.12;
+- gera as distribuições do pacote com `python -m build`;
+- valida os metadados gerados com `twine check`.
+
+### Publicação de uma nova versão
+
+A esteira `Publicar no PyPI` é disparada somente quando uma GitHub Release é publicada. Antes de publicar, ela roda os testes novamente, gera os artefatos `sdist` e `wheel` e usa a action `pypa/gh-action-pypi-publish` para enviar esses arquivos ao PyPI.
+
+### Como a publicação no PyPI funciona
+
+A publicação não usa senha nem token salvo no repositório. Ela usa **PyPI Trusted Publishing**, em que o PyPI confia no GitHub Actions deste repositório por OIDC.
+
+O workflow não precisa saber o login/senha da sua conta PyPI. A ligação acontece em duas partes:
+
+1. **Nome do projeto no PyPI:** vem do metadata do pacote em `setup.cfg`, no campo `name = dados-abertos-setor-eletrico`. É esse nome que define para qual projeto do PyPI os artefatos serão enviados.
+2. **Permissão para publicar:** vem da configuração feita dentro do PyPI, na conta que administra o projeto. No PyPI, você cadastra este repositório GitHub como **Trusted Publisher** do projeto `dados-abertos-setor-eletrico`. Quando a action roda, o PyPI valida via OIDC se a execução veio exatamente do repositório, workflow e environment configurados.
+
+Para isso funcionar, é necessário configurar uma vez no projeto do PyPI `dados-abertos-setor-eletrico` um publicador confiável com estes dados:
+
+- **Owner/organization:** `diegonerii`
+- **Repository name:** `Dados-Abertos-Setor-Eletrico-Brasileiro`
+- **Workflow name:** `publish-pypi.yml`
+- **Environment name:** `pypi`
+
+Depois dessa configuração, o fluxo é:
+
+1. Atualize o campo `version` em `setup.cfg`.
+2. Faça commit e merge das alterações na branch principal.
+3. Crie uma Release no GitHub com uma tag no padrão `vX.Y.Z`, por exemplo `v0.1.5`.
+4. Publique a Release.
+5. O GitHub Actions executa a action `Publicar no PyPI`; se os testes passarem, o pacote é enviado automaticamente para o PyPI.
+
+> Para reduzir risco de publicação acidental, o workflow não possui disparo manual. Se quiser uma aprovação humana antes do envio, configure uma regra de proteção no ambiente `pypi` em **Settings > Environments** no GitHub.
+
+> Se preferir usar token de API em vez de Trusted Publishing, configure um secret `PYPI_API_TOKEN` e adapte o passo `Publicar no PyPI` do workflow para enviar `password: ${{ secrets.PYPI_API_TOKEN }}`.
+
+
 ## Fontes oficiais
 
 - **Portal de Dados Abertos da CCEE** → [Acessar Portal](https://dadosabertos.ccee.org.br/)
