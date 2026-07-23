@@ -27,6 +27,9 @@ def test_listar_produtos_disponiveis(mock_get):
     cliente = dadosAbertosSetorEletrico("ccee")
     produtos = cliente.listar_produtos_disponiveis()
     assert produtos["result"] == ["produto1", "produto2"]
+    mock_get.assert_called_once_with(
+        cliente.host + cliente.api + "package_list", headers=cliente.headers
+    )
 
 # -------------------
 # Teste de busca de resource_ids simulando resposta da API
@@ -40,6 +43,10 @@ def test_buscar_resource_ids(mock_get):
     cliente = dadosAbertosSetorEletrico("ccee")
     ids = cliente._dadosAbertosSetorEletrico__buscar_resource_ids_por_produto("algum-produto")
     assert ids == ["abc", "def"]
+    mock_get.assert_called_once_with(
+        cliente.host + cliente.api + "package_show?id=algum-produto",
+        headers=cliente.headers,
+    )
 
 # -------------------
 # Teste assíncrono com multiplos resource_ids e paginação

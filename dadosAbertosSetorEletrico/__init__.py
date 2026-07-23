@@ -6,6 +6,29 @@ import requests
 
 class dadosAbertosSetorEletrico:
 
+    DEFAULT_HEADERS = {
+        # User-Agent identificando a biblioteca para os portais de dados abertos
+        'User-Agent': 'DadosAbertosSetorEletrico/1.0',
+
+        # Negociação de conteúdo
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+        'Accept-Language': 'pt-BR,pt;q=0.9,en;q=0.8,en-US;q=0.7',
+
+        # Suporte a compressão
+        'Accept-Encoding': 'gzip, deflate, br',
+
+        # Controle de conexão e cache
+        'Connection': 'keep-alive',
+        'Cache-Control': 'max-age=0',
+
+        # Headers adicionais comuns em navegadores
+        'Upgrade-Insecure-Requests': '1',
+        'Sec-Fetch-Dest': 'document',
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-Site': 'none',
+        'Sec-Fetch-User': '?1',
+    }
+
     def __init__(self, instituicao: str):
         """
         Inicializa a classe com a instituição desejada: CCEE, ONS ou ANEEL.
@@ -23,12 +46,14 @@ class dadosAbertosSetorEletrico:
         else:
             raise ValueError("Instituição não encontrada!")  # Gera erro se a instituição for inválida
 
+        self.headers = self.DEFAULT_HEADERS.copy()
+
     def listar_produtos_disponiveis(self):
         """
         Retorna uma lista com todos os produtos disponíveis na API.
         Cada produto representa um conjunto de dados públicos que pode ser consultado.
         """
-        r = requests.get(self.host + self.api + "package_list")
+        r = requests.get(self.host + self.api + "package_list", headers=self.headers)
         return r.json()
 
     def __buscar_resource_ids_por_produto(self, produto: str):
@@ -36,7 +61,7 @@ class dadosAbertosSetorEletrico:
         Retorna os IDs dos arquivos (resources) relacionados a um produto.
         Cada resource_id representa uma tabela acessível via API.
         """
-        r = requests.get(self.host + self.api + f"package_show?id={produto}")
+        r = requests.get(self.host + self.api + f"package_show?id={produto}", headers=self.headers)
         return [item['id'] for item in r.json()['result']['resources'] if 'id' in item]
 
     async def __fetch_offset(self, client, resource_id, offset, limit):
@@ -79,7 +104,7 @@ class dadosAbertosSetorEletrico:
         ids = self.__buscar_resource_ids_por_produto(produto)  # Busca os IDs dos arquivos (resources)
 
         # Cria um cliente HTTP assíncrono
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(headers=self.headers) as client:
             # Cria uma lista de tarefas assíncronas, uma para cada resource_id
             tarefas = [self.__baixar_resource_completo(client, rid) for rid in ids]
             # Executa todas as tarefas ao mesmo tempo
