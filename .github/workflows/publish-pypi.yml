@@ -1,0 +1,67 @@
+name: Publicar no PyPI
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Testes antes da publicação
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout do repositório
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Instalar dependências
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          python -m pip install pytest pytest-asyncio
+
+      - name: Rodar testes
+        run: python -m pytest -v
+
+  publish:
+    # Publica somente quando uma GitHub Release for publicada.
+    # O PyPI precisa estar configurado com Trusted Publishing para este repositório,
+    # workflow e ambiente; nenhuma senha/token é armazenada no GitHub.
+    name: Build e publicação
+    needs: test
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/dados-abertos-setor-eletrico
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout do repositório
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Instalar ferramentas de build
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install build
+
+      - name: Gerar distribuições
+        run: python -m build
+
+      - name: Publicar no PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
