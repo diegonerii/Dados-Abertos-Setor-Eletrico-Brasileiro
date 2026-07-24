@@ -1,105 +1,237 @@
-import asyncio      
-import httpx        
-import pandas as pd 
-import requests     
+"""Cliente para APIs CKAN de dados abertos do setor elétrico brasileiro."""
+
+import asyncio
+import warnings
+from typing import Any, Dict, List, Optional, Tuple
+
+import httpx
+import pandas as pd
+import requests
+
+__version__ = "0.1.5"
+
+
+class DadosAbertosSetorEletricoError(Exception):
+    """Erro base da biblioteca dados-abertos-setor-eletrico."""
+
+
+class DadosAbertosSetorEletricoHTTPError(DadosAbertosSetorEletricoError):
+    """Erro em comunicação HTTP com uma API CKAN."""
+
+
+class DadosAbertosSetorEletricoResponseError(DadosAbertosSetorEletricoError):
+    """Erro de estrutura ou conteúdo de resposta CKAN."""
 
 
 class dadosAbertosSetorEletrico:
+    """Cliente para consultar CCEE, ONS ou ANEEL via API CKAN.
 
-    def __init__(self, instituicao: str):
-        """
-        Inicializa a classe com a instituição desejada: CCEE, ONS ou ANEEL.
-        Define a URL base (host) de onde os dados serão buscados.
-        """
-        self.api = '/api/3/action/'  # Caminho comum da API CKAN usada por todas as instituições
+    Parameters
+    ----------
+    instituicao:
+        Nome da instituição: ``ccee``, ``ons`` ou ``aneel``. A comparação não
+        diferencia maiúsculas de minúsculas.
+    timeout:
+        Tempo máximo, em segundos, para cada requisição HTTP.
+    headers:
+        Cabeçalhos HTTP adicionais. Quando ``User-Agent`` não for informado,
+        a biblioteca envia um valor padrão identificável.
+    """
 
-        # Define a URL base dependendo da instituição informada
-        if str.lower(instituicao) == "ccee":
-            self.host = 'https://dadosabertos.ccee.org.br'
-        elif str.lower(instituicao) == "ons":
-            self.host = 'https://dados.ons.org.br'
-        elif str.lower(instituicao) == "aneel":
-            self.host = 'https://dadosabertos.aneel.gov.br/'
-        else:
-            raise ValueError("Instituição não encontrada!")  # Gera erro se a instituição for inválida
+    _HOSTS = {
+        "ccee": "https://dadosabertos.ccee.org.br",
+        "ons": "https://dados.ons.org.br",
+        "aneel": "https://dadosabertos.aneel.gov.br",
+    }
 
-    def listar_produtos_disponiveis(self):
-        """
-        Retorna uma lista com todos os produtos disponíveis na API.
-        Cada produto representa um conjunto de dados públicos que pode ser consultado.
-        """
-        r = requests.get(self.host + self.api + "package_list")
-        return r.json()
+    def __init__(
+        self,
+        instituicao: str,
+        timeout: float = 30.0,
+        headers: Optional[Dict[str, str]] = None,
+    ) -> None:
+        self.instituicao = str(instituicao).lower()
+        if self.instituicao not in self._HOSTS:
+            validas = ", ".join(sorted(self._HOSTS))
+            raise ValueError(f"Instituição não encontrada: {instituicao!r}. Use uma de: {validas}.")
 
-    def __buscar_resource_ids_por_produto(self, produto: str):
-        """
-        Retorna os IDs dos arquivos (resources) relacionados a um produto.
-        Cada resource_id representa uma tabela acessível via API.
-        """
-        r = requests.get(self.host + self.api + f"package_show?id={produto}")
-        return [item['id'] for item in r.json()['result']['resources'] if 'id' in item]
+        self.host = self._HOSTS[self.instituicao]
+        self.api = "/api/3/action/"
+        self.timeout = timeout
+        self.headers = {"User-Agent": f"dados-abertos-setor-eletrico/{__version__}"}
+        if headers:
+            self.headers.update(headers)
 
-    async def __fetch_offset(self, client, resource_id, offset, limit):
-        """
-        Função assíncrona que busca um pedaço (pagina) dos dados de um resource_id específico.
-        Trabalha com paginação (offset) e número máximo de registros (limit).
-        """
-        url = f"{self.host}{self.api}datastore_search?resource_id={resource_id}&limit={limit}&offset={offset}"
+    def _build_url(self, endpoint: str) -> str:
+        """Monta uma URL CKAN sem barras duplicadas entre host, API e endpoint."""
+        return f"{self.host.rstrip('/')}/{self.api.strip('/')}/{endpoint.lstrip('/')}"
+
+    def _format_error(self, endpoint: str, original: BaseException, status_code: Optional[int] = None) -> str:
+        status = f" Status HTTP: {status_code}." if status_code is not None else ""
+        return (
+            f"Erro ao consultar {self.instituicao.upper()} no endpoint {endpoint!r}."
+            f"{status} Erro original: {original}"
+        )
+
+    def _get_json(self, endpoint: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """Executa GET síncrono e retorna JSON validado no nível HTTP."""
+        url = self._build_url(endpoint)
         try:
-            resp = await client.get(url, timeout=30)  # Realiza a requisição de forma assíncrona
-            data = resp.json()
-            return data.get("result", {}).get("records", [])  # Retorna apenas os dados (registros)
-        except Exception as e:
-            print(f"[{resource_id}] Offset {offset} falhou: {e}")
-            return []  # Retorna lista vazia em caso de erro
+            response = requests.get(url, params=params, timeout=self.timeout, headers=self.headers)
+            response.raise_for_status()
+            data = response.json()
+        except requests.Timeout as exc:
+            raise DadosAbertosSetorEletricoHTTPError(self._format_error(endpoint, exc)) from exc
+        except requests.ConnectionError as exc:
+            raise DadosAbertosSetorEletricoHTTPError(self._format_error(endpoint, exc)) from exc
+        except requests.HTTPError as exc:
+            status_code = exc.response.status_code if exc.response is not None else response.status_code
+            raise DadosAbertosSetorEletricoHTTPError(
+                self._format_error(endpoint, exc, status_code)
+            ) from exc
+        except ValueError as exc:
+            raise DadosAbertosSetorEletricoResponseError(
+                self._format_error(endpoint, exc)
+            ) from exc
 
-    async def __baixar_resource_completo(self, client, resource_id, limit=10000):
-        """
-        Função assíncrona que baixa todos os dados de um único resource_id, lidando com paginação.
-        """
+        if not isinstance(data, dict):
+            raise DadosAbertosSetorEletricoResponseError(
+                f"Resposta inválida de {self.instituicao.upper()} no endpoint {endpoint!r}: JSON não é objeto."
+            )
+        return data
+
+    def _validate_success(self, data: Dict[str, Any], endpoint: str) -> Any:
+        if data.get("success") is False:
+            raise DadosAbertosSetorEletricoResponseError(
+                f"API CKAN retornou success=false para {self.instituicao.upper()} no endpoint {endpoint!r}: "
+                f"{data.get('error')}"
+            )
+        if data.get("success") is not True or "result" not in data:
+            raise DadosAbertosSetorEletricoResponseError(
+                f"Resposta CKAN inválida de {self.instituicao.upper()} no endpoint {endpoint!r}: "
+                "esperado success=true e campo result."
+            )
+        return data["result"]
+
+    def listar_produtos_disponiveis(self) -> Dict[str, Any]:
+        """Lista produtos disponíveis e retorna a resposta CKAN completa."""
+        endpoint = "package_list"
+        data = self._get_json(endpoint)
+        result = self._validate_success(data, endpoint)
+        if not isinstance(result, list):
+            raise DadosAbertosSetorEletricoResponseError(
+                f"Resposta CKAN inválida de {self.instituicao.upper()} no endpoint {endpoint!r}: result deve ser lista."
+            )
+        return data
+
+    def __buscar_resource_ids_por_produto(self, produto: str) -> List[str]:
+        """Retorna os IDs dos resources de um produto CKAN."""
+        endpoint = "package_show"
+        data = self._get_json(endpoint, params={"id": produto})
+        result = self._validate_success(data, endpoint)
+        resources = result.get("resources") if isinstance(result, dict) else None
+        if resources is None:
+            raise DadosAbertosSetorEletricoResponseError(
+                f"Resposta CKAN inválida de {self.instituicao.upper()} no endpoint {endpoint!r}: resources ausente."
+            )
+        if not isinstance(resources, list):
+            raise DadosAbertosSetorEletricoResponseError(
+                f"Resposta CKAN inválida de {self.instituicao.upper()} no endpoint {endpoint!r}: resources deve ser lista."
+            )
+        return [item["id"] for item in resources if isinstance(item, dict) and item.get("id")]
+
+    async def __fetch_offset(self, client: httpx.AsyncClient, resource_id: str, offset: int, limit: int) -> Tuple[List[Dict[str, Any]], Optional[int]]:
+        endpoint = "datastore_search"
+        try:
+            response = await client.get(
+                self._build_url(endpoint),
+                params={"resource_id": resource_id, "limit": limit, "offset": offset},
+            )
+            response.raise_for_status()
+            data = response.json()
+        except httpx.TimeoutException as exc:
+            raise DadosAbertosSetorEletricoHTTPError(self._format_error(endpoint, exc)) from exc
+        except httpx.HTTPStatusError as exc:
+            raise DadosAbertosSetorEletricoHTTPError(
+                self._format_error(endpoint, exc, exc.response.status_code)
+            ) from exc
+        except httpx.HTTPError as exc:
+            raise DadosAbertosSetorEletricoHTTPError(self._format_error(endpoint, exc)) from exc
+        except ValueError as exc:
+            raise DadosAbertosSetorEletricoResponseError(self._format_error(endpoint, exc)) from exc
+
+        result = self._validate_success(data, endpoint)
+        records = result.get("records") if isinstance(result, dict) else None
+        if records is None or not isinstance(records, list):
+            raise DadosAbertosSetorEletricoResponseError(
+                f"Resposta CKAN inválida de {self.instituicao.upper()} no endpoint {endpoint!r}: records ausente ou inválido."
+            )
+        total = result.get("total")
+        return records, total if isinstance(total, int) else None
+
+    async def __baixar_resource_completo(self, client: httpx.AsyncClient, resource_id: str, limit: int = 10000) -> List[Dict[str, Any]]:
         offset = 0
-        todos_registros = []
-
-        # Laço que busca página por página (de 10 mil em 10 mil)
+        todos_registros: List[Dict[str, Any]] = []
         while True:
-            registros = await self.__fetch_offset(client, resource_id, offset, limit)
+            registros, total = await self.__fetch_offset(client, resource_id, offset, limit)
             if not registros:
-                break  # Para quando não houver mais dados
-            todos_registros.extend(registros)  # Junta os dados
-            offset += limit  # Vai para a próxima página
-
+                break
+            todos_registros.extend(registros)
+            offset += limit
+            if total is not None and offset >= total:
+                break
         return todos_registros
 
-    async def baixar_dados_produto_completo_async(self, produto: str):
+    async def baixar_dados_produto_completo_async(self, produto: str) -> pd.DataFrame:
+        """Baixa todos os resources de um produto e retorna sempre um DataFrame.
+
+        Se apenas alguns resources falharem, os dados válidos são retornados e
+        um ``warnings.warn`` informa os resources com falha. Se todos falharem,
+        uma exceção agregada é lançada. Produtos sem registros retornam
+        ``pandas.DataFrame()``.
         """
-        Função principal assíncrona para baixar todos os dados de um produto.
-        Acessa vários resource_ids em paralelo e junta os dados num único DataFrame (tabela).
-        """
-        print("Iniciando download assíncrono...")
-        ids = self.__buscar_resource_ids_por_produto(produto)  # Busca os IDs dos arquivos (resources)
+        ids = self.__buscar_resource_ids_por_produto(produto)
+        if not ids:
+            return pd.DataFrame()
 
-        # Cria um cliente HTTP assíncrono
-        async with httpx.AsyncClient() as client:
-            # Cria uma lista de tarefas assíncronas, uma para cada resource_id
-            tarefas = [self.__baixar_resource_completo(client, rid) for rid in ids]
-            # Executa todas as tarefas ao mesmo tempo
-            resultados = await asyncio.gather(*tarefas)
+        async with httpx.AsyncClient(timeout=self.timeout, headers=self.headers) as client:
+            resultados = await asyncio.gather(
+                *(self.__baixar_resource_completo(client, rid) for rid in ids),
+                return_exceptions=True,
+            )
 
-        # Junta todos os registros em uma única lista
-        todos_registros = [item for sublist in resultados for item in sublist]
+        todos_registros: List[Dict[str, Any]] = []
+        falhas = []
+        for resource_id, resultado in zip(ids, resultados):
+            if isinstance(resultado, Exception):
+                falhas.append(f"{resource_id}: {resultado}")
+            else:
+                todos_registros.extend(resultado)
 
-        # Retorna um DataFrame com os dados (ou None se não houver nada)
-        return pd.DataFrame(todos_registros) if todos_registros else None
+        if falhas and len(falhas) == len(ids):
+            raise DadosAbertosSetorEletricoError(
+                f"Nenhum resource de {produto!r} foi baixado com sucesso. Falhas: " + "; ".join(falhas)
+            )
+        if falhas:
+            warnings.warn(
+                f"Alguns resources de {produto!r} falharam e foram ignorados: " + "; ".join(falhas),
+                RuntimeWarning,
+                stacklevel=2,
+            )
+        return pd.DataFrame(todos_registros)
 
-    def baixar_dados_produto_completo(self, produto: str):
-        """
-        Versão compatível com ambientes normais (como scripts Python).
-        Detecta se já existe um loop assíncrono rodando (como no Jupyter) e se adapta.
+    def baixar_dados_produto_completo(self, produto: str) -> pd.DataFrame:
+        """Versão síncrona do download completo.
+
+        Em ambientes com event loop ativo (por exemplo, Jupyter), este método
+        levanta ``RuntimeError`` para evitar retornar ``asyncio.Task``. Use
+        ``await cliente.baixar_dados_produto_completo_async(produto)`` nesses
+        casos.
         """
         try:
-            # Se já existe um loop (ex: Jupyter), cria uma tarefa
-            loop = asyncio.get_running_loop()
-            return loop.create_task(self.baixar_dados_produto_completo_async(produto))
+            asyncio.get_running_loop()
         except RuntimeError:
-            # Caso contrário, executa o método assíncrono do zero
             return asyncio.run(self.baixar_dados_produto_completo_async(produto))
+        raise RuntimeError(
+            "Há um event loop ativo. Use: await cliente.baixar_dados_produto_completo_async(produto)."
+        )

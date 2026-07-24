@@ -1,3 +1,8 @@
 [build-system]
 requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[tool.pytest.ini_options]
+markers = [
+    "integration: testes opcionais que fazem chamadas reais às APIs CKAN",
+]
