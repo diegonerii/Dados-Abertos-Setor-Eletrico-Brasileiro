@@ -42,7 +42,7 @@ class dadosAbertosSetorEletrico:
         elif str.lower(instituicao) == "ons":
             self.host = 'https://dados.ons.org.br'
         elif str.lower(instituicao) == "aneel":
-            self.host = 'https://dadosabertos.aneel.gov.br/'
+            self.host = 'https://dadosabertos.aneel.gov.br'
         else:
             raise ValueError("Instituição não encontrada!")  # Gera erro se a instituição for inválida
 
