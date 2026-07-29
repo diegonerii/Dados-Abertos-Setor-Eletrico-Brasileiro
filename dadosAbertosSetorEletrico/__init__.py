@@ -14,9 +14,6 @@ class dadosAbertosSetorEletrico:
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
         'Accept-Language': 'pt-BR,pt;q=0.9,en;q=0.8,en-US;q=0.7',
 
-        # Suporte a compressão
-        'Accept-Encoding': 'gzip, deflate, br',
-
         # Controle de conexão e cache
         'Connection': 'keep-alive',
         'Cache-Control': 'max-age=0',
