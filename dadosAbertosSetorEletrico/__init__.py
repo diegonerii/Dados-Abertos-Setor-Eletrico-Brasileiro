@@ -116,12 +116,17 @@ class dadosAbertosSetorEletrico:
     def baixar_dados_produto_completo(self, produto: str):
         """
         Versão compatível com ambientes normais (como scripts Python).
-        Detecta se já existe um loop assíncrono rodando (como no Jupyter) e se adapta.
+        Em ambientes com loop ativo, orienta o uso do método assíncrono.
         """
         try:
-            # Se já existe um loop (ex: Jupyter), cria uma tarefa
-            loop = asyncio.get_running_loop()
-            return loop.create_task(self.baixar_dados_produto_completo_async(produto))
+            # Detecta um loop ativo para orientar o uso do método assíncrono.
+            asyncio.get_running_loop()
         except RuntimeError:
             # Caso contrário, executa o método assíncrono do zero
             return asyncio.run(self.baixar_dados_produto_completo_async(produto))
+
+        raise RuntimeError(
+            "Um event loop assíncrono já está em execução. "
+            "Execute `await cliente.baixar_dados_produto_completo_async("
+            "'nome_do_produto')`."
+        )
