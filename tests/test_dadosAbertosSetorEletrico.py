@@ -17,6 +17,12 @@ def test_init_invalido():
     with pytest.raises(ValueError):
         dadosAbertosSetorEletrico("xyz")
 
+def test_headers_nao_anunciam_compressao_brotli():
+    # Cada cliente HTTP deve anunciar apenas os algoritmos que consegue decodificar.
+    cliente = dadosAbertosSetorEletrico("ccee")
+
+    assert "Accept-Encoding" not in cliente.headers
+
 # -------------------
 # Teste de listagem de produtos com simulação da API
 # -------------------
