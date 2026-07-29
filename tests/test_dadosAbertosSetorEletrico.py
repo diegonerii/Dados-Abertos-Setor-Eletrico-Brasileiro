@@ -3,6 +3,65 @@ from unittest.mock import patch, AsyncMock
 from dadosAbertosSetorEletrico import dadosAbertosSetorEletrico
 import pandas as pd
 
+
+@pytest.fixture
+def mock_async_client(monkeypatch):
+    class FakeAsyncClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc_value, traceback):
+            return False
+
+    monkeypatch.setattr(
+        "dadosAbertosSetorEletrico.httpx.AsyncClient", FakeAsyncClient
+    )
+
+
+def test_baixar_dados_produto_completo_sincrono(monkeypatch):
+    cliente = dadosAbertosSetorEletrico("ccee")
+    esperado = pd.DataFrame({"coluna": ["valor"]})
+
+    async def fake_download(produto):
+        assert produto == "produto-teste"
+        return esperado
+
+    monkeypatch.setattr(
+        cliente, "baixar_dados_produto_completo_async", fake_download
+    )
+
+    resultado = cliente.baixar_dados_produto_completo("produto-teste")
+
+    pd.testing.assert_frame_equal(resultado, esperado)
+
+
+def test_baixar_dados_produto_completo_sincrono_retorna_none(monkeypatch):
+    cliente = dadosAbertosSetorEletrico("ccee")
+
+    async def fake_download(produto):
+        return None
+
+    monkeypatch.setattr(
+        cliente, "baixar_dados_produto_completo_async", fake_download
+    )
+
+    assert cliente.baixar_dados_produto_completo("produto-vazio") is None
+
+
+@pytest.mark.asyncio
+async def test_baixar_dados_produto_completo_em_loop_levanta_erro():
+    cliente = dadosAbertosSetorEletrico("ccee")
+
+    with pytest.raises(RuntimeError) as exc_info:
+        cliente.baixar_dados_produto_completo("produto-teste")
+
+    assert "await cliente.baixar_dados_produto_completo_async('nome_do_produto')" in str(
+        exc_info.value
+    )
+
 # -------------------
 # Testes de inicialização da classe
 # -------------------
@@ -58,7 +117,7 @@ def test_buscar_resource_ids(mock_get):
 # Teste assíncrono com multiplos resource_ids e paginação
 # -------------------
 @pytest.mark.asyncio
-async def test_baixar_dados_mockado():
+async def test_baixar_dados_produto_completo_async_uso_correto(mock_async_client):
     cliente = dadosAbertosSetorEletrico("ccee")
 
     chamadas = []
@@ -87,7 +146,7 @@ async def test_baixar_dados_mockado():
 # Teste com um resource_id que falha
 # -------------------
 @pytest.mark.asyncio
-async def test_baixar_dados_com_erro():
+async def test_baixar_dados_com_erro(mock_async_client):
     cliente = dadosAbertosSetorEletrico("ccee")
 
     # Simula uma exceção para um dos resource_ids
@@ -122,7 +181,7 @@ async def test_baixar_dados_com_erro():
 # Teste de um resource_id que não retorna nenhum dado
 # -------------------
 @pytest.mark.asyncio
-async def test_baixar_dados_vazio():
+async def test_baixar_dados_vazio(mock_async_client):
     cliente = dadosAbertosSetorEletrico("ccee")
 
     # Simula resposta vazia para todos os offsets

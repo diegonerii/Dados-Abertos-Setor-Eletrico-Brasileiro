@@ -45,6 +45,8 @@ pip install -r requirements.txt
 
 ## Exemplo de uso
 
+### Script Python
+
 ```python
 from dadosAbertosSetorEletrico import dadosAbertosSetorEletrico
 
@@ -57,7 +59,24 @@ print(produtos)
 
 # Baixa todos os dados do produto desejado como DataFrame
 df = cliente.baixar_dados_produto_completo("parcela_carga_consumo")
-print(df.head())
+if df is not None:
+    print(df.head())
+```
+
+### Jupyter Notebook
+
+Em um Jupyter Notebook, o event loop assíncrono já está ativo. Use `await` com
+o método assíncrono; o método síncrono lança um `RuntimeError` para orientar
+essa utilização.
+
+```python
+from dadosAbertosSetorEletrico import dadosAbertosSetorEletrico
+
+cliente = dadosAbertosSetorEletrico("ccee")
+df = await cliente.baixar_dados_produto_completo_async("acl_eol")
+
+if df is not None:
+    df.head()
 ```
 
 ## ✅ Testes Automatizados
